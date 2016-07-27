@@ -43,7 +43,7 @@ function construct_γs(γoverall    :: Float64,
     for α in 1:N
         for η in 1:N
             if α != η && abs(Es[α] - Es[η]) < bath_w
-                γ[η, α] = γoverall * exp(-β*(Es[α] - Es[η])/2)   
+                γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)   
             end
         end
     end
@@ -63,7 +63,7 @@ function thermalization_mats(γ :: Array{Float64, 2}, H_eigdecomp)
     for α = 1:N
         for η = 1:N
             if α != η
-                z[α,η] = sum(γ[α,:] + γ[η,:])/2
+                z[α,η] = sum(γ[:,α] + γ[:,η])/2
                 ω[α,η] = E[α] - E[η]
             end
         end
@@ -74,7 +74,7 @@ function thermalization_mats(γ :: Array{Float64, 2}, H_eigdecomp)
         Γ_diagcorr[α] = sum(γ[:,α])
     end
     
-    Γ = transpose(γ) - diagm(Γ_diagcorr)
+    Γ = γ - diagm(Γ_diagcorr)
     
     return (Γ, z, ω)
 end
