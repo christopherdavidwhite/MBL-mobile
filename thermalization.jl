@@ -1,12 +1,12 @@
 #This way of using multiple dispatch is brittle and not naturally extensible.
 #Better would be to define an abstract "coupling_scheme" type and a number of subtypes,
 #but that would be ridiculous over-engineering, seems to me.
-function coupling_factor(S :: SpinHalfChain, op :: SparseMatrixCSC,)
-    V = S.H_eigdecomp[:vectors] #eigenvectors of Hamiltonian
-    return abs2(V'*op*V)
+function coupling_factor(S :: AbstractSpinHalfChain, op :: SparseMatrixCSC,)
+    V = S.H_eigendecomp[:vectors] #eigenvectors of Hamiltonian
+    return abs(V'*op*V).^2
 end
 
-function coupling_factor(S :: SpinHalfChain, scheme :: Tuple{Symbol, Int64})
+function coupling_factor(S :: AbstractSpinHalfChain, scheme :: Tuple{Symbol, Int64})
     scheme, site = scheme
     assert(:proj_spec_site == scheme)
     V = S.H_eigendecomp[:vectors]#Hamiltonian eigenvectors
@@ -27,7 +27,7 @@ end
 #    Γ[η,α] is rate of α-->η.
 function construct_γs(γoverall    :: Float64,
     β           :: Float64,
-    sys         :: SpinHalfChain,
+    sys         :: AbstractSpinHalfChain,
     coupling,
     bath_w      :: Float64)
     
@@ -43,7 +43,7 @@ function construct_γs(γoverall    :: Float64,
     for α in 1:N
         for η in 1:N
             if α != η && abs(Es[α] - Es[η]) < bath_w
-                γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)   
+                γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)  
             end
         end
     end
@@ -54,7 +54,6 @@ end
 
 #Assumes ρ is in the same basis in which H has eiegendecomposition H_eigdecomp
 function thermalization_mats(γ :: Array{Float64, 2}, H_eigdecomp)
-
     E = H_eigdecomp[:values]
     N = size(E,1)
     
@@ -105,7 +104,7 @@ function thermalize(sys, Γ, z, ω, ρ, t)
     
     ρoffdiag = ρoffdiag .* exp(-t*(z + im*ω))
     ρdiag    = expm(t*Γ)*ρdiag
-    
+
     return ρoffdiag + diagm(ρdiag)
 end
 
@@ -113,5 +112,6 @@ chain(f, lst) = [f(x2, x1) for (x1, x2) in zip(lst[1:end-1], lst[2:end])]
 function decaytime(t, op_expect :: Array{Float64, 1}, gibbs_op_expect :: Float64)
     dts = chain(-, t)
     normalization = abs(op_expect[1] - gibbs_op_expect)
-    return sum(dts .* abs(op_expect - gibbs_op_expect)[1:end-1])/normalization
+    diffs = chain((x,y) -> (x + y)/2, abs(op_expect - gibbs_op_expect))
+    return sum(dts .* diffs)/normalization
 end
