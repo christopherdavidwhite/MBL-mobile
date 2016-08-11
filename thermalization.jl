@@ -56,13 +56,13 @@ end
 function thermalization_mats(γ :: Array{Float64, 2}, H_eigdecomp)
     E = H_eigdecomp[:values]
     N = size(E,1)
-    
+    spγ = sparse(γ)
     z = zeros(N,N)
     ω = zeros(N,N)
     for α = 1:N
         for η = 1:N
             if α != η
-                z[α,η] = sum(γ[:,α] + γ[:,η])/2
+                z[α,η] = 0.5*(sum(spγ[:,α]) + sum(spγ[:,η]))
                 ω[α,η] = E[α] - E[η]
             end
         end
