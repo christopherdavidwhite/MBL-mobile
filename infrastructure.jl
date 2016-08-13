@@ -38,6 +38,8 @@ type RFHeis{T} <: AbstractSpinHalfChain
     scale :: Function
     h     :: Function
     bond  :: Array{T,2}
+    bond_evals  :: Array{Float64,1}
+    bond_evects :: Array{T,2}
     field :: Array{T,1}
     
     #Note: these are caches, and require updating!
@@ -83,9 +85,11 @@ function RFHeis(L)
     H = speye(2^L)
     H_eigendecomp = eigfact(full(H))
     bond = zeros(2^L,2^L)
+    bond_evals = zeros(2^L)
+    bond_evects = eye(2^L)
     field = zeros(2^L)
     h = α -> 1
-    return RFHeis(L, pauli..., H_fn, scale, h, bond, field, H, H_eigendecomp)
+    return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, H, H_eigendecomp)
 end
 
 function update!{T}(S :: AbstractSpinHalfChain, H :: SparseMatrixCSC{T, Int64})
@@ -145,6 +149,7 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
         field += Z[j]*h[j]
     end
 
+    bond_evals, bond_evects = bond |> full|> eig 
     sys.bond = bond
     sys.field = diag(field)
     sys.scale = α -> 1.0/Q(sys.h(α))
