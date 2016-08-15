@@ -26,13 +26,12 @@ function timestep(sys :: AbstractSpinHalfChain,
     return expm(full(-im*sys.H_fn(t)*δ))* U
 end
 
-function timestep(bond_evals :: Array{Complex{Float64},2},
-                  bond_evects :: Array{Float64,1},
+function timestep(bond_evals :: Array{Float64,1},
+                  bond_evects :: Array{Complex{Float64},2},
                   field :: Array{Float64, 1},
                   h :: Float64,
                   δ :: Float64,
                   U :: Array{Complex{Float64}, 2})
-    bond_evects
     expm_bond = scale(bond_evects, exp(-im*δ*bond_evals)) * bond_evects'
     return scale(expm_bond, exp(-im*h*δ*field)) * U
 end
@@ -56,20 +55,18 @@ end
 function forwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
     U = eye(Complex{Float64}, 2^sys.L)
     for t in 0:δ:(T-δ)
-        U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(α)), U)
+        U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(t/T)), U)
     end
     return U
 end
 
-function forwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
-    expm_bond = expm(-im*full(sys.bond)*δ) 
+function backwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
     U = eye(Complex{Float64}, 2^sys.L)
     for t in T:δ:δ
-        U = timestep(expm_bond, sys.field, sys.h(t/T), δ*sys.scale(sys.h(α)), U)
+        U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(t/T)), U)
     end
     return U
 end
-
 function ediag(sys, ρ)
     V = sys.H_eigendecomp[:vectors]
     return real(diag(V'*ρ*V))

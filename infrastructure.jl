@@ -1,3 +1,5 @@
+import Base.convert
+
 tol = 1e-10
 
 function check(val, target, name)
@@ -39,7 +41,7 @@ type RFHeis{T} <: AbstractSpinHalfChain
     h     :: Function
     bond  :: Array{T,2}
     bond_evals  :: Array{Float64,1}
-    bond_evects :: Array{T,2}
+    bond_evects :: Array{Complex{Float64},2}
     field :: Array{T,1}
     
     #Note: these are caches, and require updating!
@@ -47,6 +49,10 @@ type RFHeis{T} <: AbstractSpinHalfChain
     H_eigendecomp #Instantaneous Hamiltonian eigendecomposition
 end
 
+#can't figure out how to make "convert" work
+function despecialize(sys :: RFHeis{Float64})
+    return SpinHalfChain(sys.L,sys.X,sys.Y,sys.Z,sys.P,sys.M,sys.H_fn,sys.H,sys.H_eigendecomp)
+end
 function pauli_matrices(L :: Int64)
     I = speye(2)
     sigx = sparse([0 1; 1 0])
@@ -86,7 +92,7 @@ function RFHeis(L)
     H_eigendecomp = eigfact(full(H))
     bond = zeros(2^L,2^L)
     bond_evals = zeros(2^L)
-    bond_evects = eye(2^L)
+    bond_evects = eye(Complex{Float64}, 2^L)
     field = zeros(2^L)
     h = α -> 1
     return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, H, H_eigendecomp)
