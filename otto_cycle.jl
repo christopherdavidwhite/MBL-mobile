@@ -18,6 +18,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
 
     #SETUP (ETH THERMALIZATION)
 
+
     ρinitial = gibbs(sys.H_fn(0.0), βH)
     if verbose
         update!(sys, 0.0)
@@ -104,4 +105,75 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
                )
 
     return out
+end
+
+function map_otto_efficiency(L    :: Int64,
+                             h1   :: Float64,
+                             h0s  :: Array{Float64,1},
+                             coupling_op_fn :: Function,
+                             wbs  :: Array{Float64,1},
+                             Δtths :: Array{Float64, 1},
+                             βHs   :: Array{Float64, 1},
+                             βCs   :: Array{Float64, 1},
+                             N_reals :: Int64,
+                             δfs  :: Array{Float64, 1} = [1/32])
+    # sys.X[1] + sys.Z[1]
+    sys = RFHeis(L)
+    coupling_op = coupling_op_fn(sys)
+    
+    Q = h -> sqrt(3(L - 1) + L*h.^2/3)
+    @show wbs
+
+    coupling = coupling_op
+    data = Dict(
+                :WETHMBL => [],
+                :WMBLETH => [],
+                :WTOT    => [],
+                :QMBL    => [],
+                :QETH    => [],
+                :η       => [],
+                :r       => [],
+                :neg_work => [],
+                :h0      => [],
+                :h1      => [],
+                :βH      => [],
+                :βC      => [],
+                :Δtths   => [],
+                :v       => [],
+                :wb      => [],
+    :std => [],
+    :δf   => [],
+    )
+
+    @show N_reals
+    @time for r in 1:N_reals
+        @show (L, r)
+        @time for h0 in h0s
+            srand(r*10)
+            rfheis!(sys, h0, h1, Q)
+            update!(sys, 1.0)
+            d = sys.H_eigendecomp[:values]
+            for wb in wbs, δf in δfs, βH in βHs, βC in βCs, Δtth in Δtths
+                v = 0.01*wb^2
+                T = abs(h1 - h0)/v
+                δ = δf * T
+                dct = otto_efficiency(sys, coupling_op, δ, wb, T, Δtth, βH, βC, false)
+                for k in keys(dct)
+                    data[k] = push!(data[k], real(dct[k]))
+                end
+                data[:h0] = push!(data[:h0], h0) 
+                data[:βC] = push!(data[:βC], βC) 
+                data[:βH] = push!(data[:βH], βH) 
+                data[:Δtths] = push!(data[:Δtths], Δtths) 
+                data[:h1] = push!(data[:h1], h1) 
+                data[:v] = push!(data[:v], v) 
+                data[:wb] = push!(data[:wb], wb) 
+                data[:r] = push!(data[:r], r) 
+                data[:std] = push!(data[:std], std(d)) 
+                data[:δf] = push!(data[:δf], δf) 
+            end
+        end
+    end
+
+    return DataFrame(data);
 end

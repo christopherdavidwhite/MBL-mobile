@@ -156,7 +156,7 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
     end
 
     bond_evals, bond_evects = bond |> full|> eig 
-    sys.bond = bond
+    sys.bond  = full(bond)
     sys.field = diag(field)
     sys.scale = α -> 1.0/Q(sys.h(α))
     sys.h     = α -> (h0 * (1 - α) + h1* α)
