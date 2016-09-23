@@ -33,7 +33,9 @@ function timestep(bond_evals :: Array{Float64,1},
                   δ :: Float64,
                   U :: Array{Complex{Float64}, 2})
     expm_bond = scale(bond_evects, exp(-im*δ*bond_evals)) * bond_evects'
-    return scale(expm_bond, exp(-im*h*δ*field)) * U
+    U = scale(expm_bond, exp(-im*h*δ*field)) * U
+    U :: Array{Complex{Float64}, 2}
+    return U
 end
 
 function forwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: Float64, δ :: Float64)
@@ -54,16 +56,30 @@ end
 
 function forwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
     U = eye(Complex{Float64}, 2^sys.L)
+    hfn = sys.h
+    Qfn = sys.scale
+    bond_evals = sys.bond_evals
+    bond_evects = sys.bond_evects
+    field = sys.field
     for t in 0:δ:(T-δ)
-        U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(t/T)), U)
+        h = (hfn(t/T) :: Float64)
+        Q = (Qfn(h) :: Float64)
+        U = timestep(bond_evals, bond_evects, field, h, δ*Q, U)
     end
     return U
 end
 
 function backwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
     U = eye(Complex{Float64}, 2^sys.L)
+    hfn = sys.h
+    Qfn = sys.scale
+    bond_evals = sys.bond_evals
+    bond_evects = sys.bond_evects
+    field = sys.field
     for t in T:-δ:δ
-        U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(t/T)), U)
+        h = (hfn(t/T) :: Float64)
+        Q = (Qfn(h) :: Float64)
+        U = timestep(bond_evals, bond_evects, field, h, δ*Q, U)
     end
     return U
 end
