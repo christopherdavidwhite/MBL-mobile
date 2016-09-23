@@ -62,8 +62,58 @@ end
 
 function backwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
     U = eye(Complex{Float64}, 2^sys.L)
-    for t in T:δ:δ
+    for t in T:-δ:δ
         U = timestep(sys.bond_evals, sys.bond_evects, sys.field, sys.h(t/T), δ*sys.scale(sys.h(t/T)), U)
+    end
+    return U
+end
+
+#This particular use of multiple dispatch (T as string for
+#less-than-straightforward, e.g. adiabatic, time evolution) might be
+#too clever by half.
+
+function forwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: AbstractString, δ :: Float64)
+    if "adiabatic" == T
+        #Trick is to write unitaries that'll do what I want: move me
+        #from diagonal in one basis to diagonal in the other.
+
+        #Could probably (have) cached one of these. Will worry about
+        #that later.
+        d0, V0 = 0 |> sys.H_fn |> full |> eig 
+        p0 = sortperm(d0) #make sure eigenvalues are sorted
+        V0 = V0[p0, p0]
+        
+        d1, V1 = 1 |> sys.H_fn |> full |> eig 
+        p1 = sortperm(d1)
+        V1 = V1[p1, p1]
+        
+        U = V1 * V0'
+        #Can see that this is what we want: maps ground state of H0 to
+        #ground state of H1, first excited to first excited, etc.
+    else
+        error("Unsupported time evolution $T!")
+    end
+    return U
+end
+
+function backwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: AbstractString, δ :: Float64)
+    if "adiabatic" == T
+        #Trick is to write unitaries that'll do what I want: move me
+        #from diagonal in one basis to diagonal in the other.
+
+        #Could probably (have) cached one of these. Will worry about
+        #that later.
+        d0, V0 = 0 |> sys.H_fn |> full |> eig 
+        p0 = sortperm(d0) #make sure eigenvalues are sorted
+        V0 = V0[p0, p0]
+        
+        d1, V1 = 1 |> sys.H_fn |> full |> eig 
+        p1 = sortperm(d1)
+        V1 = V1[p1, p1]
+        
+        U = V0 * V1'
+    else
+        error("Unsupported time evolution $T!")
     end
     return U
 end
