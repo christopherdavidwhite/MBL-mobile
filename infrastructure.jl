@@ -81,7 +81,7 @@ function SpinHalfChain(L)
     H_fn = x -> speye(2^L)
     H = speye(2^L)
     H_eigendecomp = eigfact(full(H))
-    return SpinHalfCHain(L, pauli..., H_fn, H, H_eigendecomp)
+    return SpinHalfChain(L, pauli..., H_fn, H, H_eigendecomp)
 end
 
 function RFHeis(L)
