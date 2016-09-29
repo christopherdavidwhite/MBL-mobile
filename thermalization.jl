@@ -34,7 +34,8 @@ function construct_γs(γoverall    :: Float64,
     Es = sys.H_eigendecomp[:values]
     
     sys_bw = (maximum(Es) - minimum(Es))
-    if β*sys_bw > 10 && β * bath_w > 10
+    max_expt = 64
+    if β*sys_bw > max_expt && β * bath_w > max_expt
         println( "WARNING: β*sys_bw = $(β*sys_bw)> 10 && β*bath_w = $(β*bath_w) > 10")
     end
     Vs = sys.H_eigendecomp[:vectors]
