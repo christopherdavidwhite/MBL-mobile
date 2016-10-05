@@ -4,49 +4,87 @@ tol = 1e-10
 
 function check(val, target, name)
     diff = val - target
-    fail = abs(diff) > tol
+    fail = maximum(abs(diff)) > tol
     if fail
         println((name, val, target, diff))
     end
     assert(!fail)
 end
 
-abstract AbstractSpinHalfChain
-
-type SpinHalfChain{T} <: AbstractSpinHalfChain
-    L :: Int64
-    X :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    Y :: Array{SparseMatrixCSC{Complex{Float64},Int64}, 1}
-    Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    P :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    M :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    
-    H_fn :: Function #Function returning instantaneous Hamiltonian at given time
-    
-    #Note: these are caches, and require updating!
-    H :: SparseMatrixCSC{T, Int64} #Instantaneous Hamiltonian 
-    H_eigendecomp #Instantaneous Hamiltonian eigendecomposition
+function check(val :: Eigen, target :: Eigen, name)
+    check(val
 end
 
-type RFHeis{T} <: AbstractSpinHalfChain
-    L :: Int64
-    X :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    Y :: Array{SparseMatrixCSC{Complex{Float64},Int64}, 1}
-    Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    P :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
-    M :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}
+abstract AbstractSpinHalfChain
+
+#Generic spin-1/2 chain. Fields:
+type SpinHalfChain{T} <: AbstractSpinHalfChain
+    L :: Int64                                               # System length
+    X :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}   # List of onsite Pauli X matrices
+    Y :: Array{SparseMatrixCSC{Complex{Float64},Int64}, 1}   # -------------------- Y --------
+    Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}   # -------------------- Z --------
+    P :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}   # List of onsite raising  operators x + iy
+    M :: Array{SparseMatrixCSC{Float64         ,Int64}, 1}   # List of onsite lowering operators x - iy
     
-    H_fn  :: Function #Function returning instantaneous Hamiltonian at given time
-    scale :: Function
-    h     :: Function
-    bond  :: Array{T,2}
-    bond_evals  :: Array{Float64,1}
-    bond_evects :: Array{Complex{Float64},2}
-    field :: Array{T,1}
+    
+    # H_fn  : α ∈ [0,1] --> SparseMatrixCSC
+    # scale : α ∈ [0,1] --> Float64
+    # h     : α ∈ [0,1] --> Float64
+    
+    H_fn  :: Function                                      # Returns instantaneous Hamiltonian as fn of α
     
     #Note: these are caches, and require updating!
-    H :: SparseMatrixCSC{T, Int64} #Instantaneous Hamiltonian 
-    H_eigendecomp #Instantaneous Hamiltonian eigendecomposition
+    H :: SparseMatrixCSC{T, Int64}                         # Cache of Hamiltonian at "current" α
+    H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
+end
+
+function invariant_check(::AbstractSpinHalfChain)
+    invs = sys -> [
+                   check(sys.L, size(sys.X, 1), "sys.X length"),
+                   check(sys.L, size(sys.Y, 1), "sys.Y length"),
+                   check(sys.L, size(sys.Z, 1), "sys.Z length"),
+                   check(sys.L, size(sys.P, 1), "sys.P length"),
+                   check(sys.L, size(sys.M, 1), "sys.M length"),
+                   
+                   check(sys.H, sys.H_eigendecomp[:vectors] * sys.H_eigendecomp[:values] * sys.H_eigendecomp[:vectors]'),
+    check(size(sys.H), (2^sys.L, 2^sys.L)),
+                   ]
+    return invs
+
+type RFHeis{T} <: AbstractSpinHalfChain
+    L :: Int64                                             # System length
+    X :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite Pauli X matrices
+    Y :: Array{SparseMatrixCSC{Complex{Float64},Int64}, 1} # -------------------- Y --------
+    Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # -------------------- Z --------
+    P :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite raising  operators x + iy
+    M :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite lowering operators x - iy
+
+
+    # System's "real" Hamiltonian is
+    #
+    #    H(α) = scale(α) * ( bond + h(α) * hdiagm(field) )
+    # 
+    # H_fn returns exactly this: when you do α |> sys.H_fn |> eig,
+    # you're diagonalizing the Hamiltonian at a tuning point α. We
+    # keep track of the scale separately to make time evolution
+    # easier.
+    
+    # H_fn  : α ∈ [0,1] --> SparseMatrixCSC
+    # scale : α ∈ [0,1] --> Float64
+    # h     : α ∈ [0,1] --> Float64
+    
+    H_fn  :: Function                                      # Returns instantaneous Hamiltonian as fn of α
+    scale :: Function                                      # Returns overall scale as fn of α
+    h     :: Function                                      # Returns magnitude of field: Hamiltonian =
+
+    bond  :: Array{T,2}                                    # "Bond term": part off-diagonal in comp. basis
+    bond_evals  :: Array{Float64,1}                        # Eigenvalues of bond term
+    bond_evects :: Array{Complex{Float64},2}               # Eigenvectors of bond term
+    field :: Array{T,1}                                    # "field" term: part diagonal in comp. basis
+    
+    #Note: these are caches, and require updating!
+    H :: SparseMatrixCSC{T, Int64}                         # Cache of Hamiltonian at "current" α
+    H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
 end
 
 #can't figure out how to make "convert" work
@@ -163,4 +201,12 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
     sys.H_fn  = α -> (bond + sys.h(α) * (field)) * sys.scale(α)
     update!(sys, 0.0)
     return(bond, field)
+end
+
+function blank_data_hash(symbols :: Array{Symbol, 1})
+    data = Dict()
+    for s in symbols
+        data[s] = []
+    end
+    return data
 end
