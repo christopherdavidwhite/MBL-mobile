@@ -147,9 +147,8 @@ function RFHeis(L)
     bond = zeros(2^L,2^L)
     bond_evals = zeros(2^L)
     bond_evects = eye(Complex{Float64}, 2^L)
-    field = zeros(2^L)
+    field = ones(2^L)
     h = α -> 1
-    # XXX does not satisfy invariant H = field + bond
     return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, H, H_eigendecomp)
 end
 
