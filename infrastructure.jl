@@ -164,27 +164,6 @@ function gibbs(H :: SparseMatrixCSC, β :: Float64)
     return ρ
 end
 
-#multiply hamiltonian by 1/Q
-function rfheis!(sys :: SpinHalfChain, hmax :: Float64, Q :: Float64)
-    L = sys.L
-    (M,P,Z) = (sys.M, sys.P, sys.Z)
-    
-    h = 2*rand(L) - 1
-
-    bond = spzeros(Float64, 2^L, 2^L)
-    for j in 1:(L - 1)
-        bond += (P[j]*M[j+1] + M[j]P[j+1])/2 + Z[j] * Z[j+1]
-    end
-    #bond += (P[L]M[1] + M[L]P[1])/2 + Z[L] * Z[1]
-
-    field = spzeros(Float64, 2^L, 2^L)
-    for j in 1:L
-        field += Z[j]*h[j]
-    end
-
-    update!(sys, bond + hmax*field)
-    return(bond, field)
-end
 
 #multiply Hamiltonian by 1/Q.
 #Q is a function of h
