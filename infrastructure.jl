@@ -38,17 +38,16 @@ type SpinHalfChain{T} <: AbstractSpinHalfChain
     H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
 end
 
-function invariant_check(::AbstractSpinHalfChain)
-    invs = sys -> [
-                   check(sys.L, size(sys.X, 1), "sys.X length"),
-                   check(sys.L, size(sys.Y, 1), "sys.Y length"),
-                   check(sys.L, size(sys.Z, 1), "sys.Z length"),
-                   check(sys.L, size(sys.P, 1), "sys.P length"),
-                   check(sys.L, size(sys.M, 1), "sys.M length"),
+function invariant_checks(::AbstractSpinHalfChain)
+    invs =  [sys -> check(sys.L, size(sys.X, 1), "sys.X length"),
+             sys -> check(sys.L, size(sys.Y, 1), "sys.Y length"),
+             sys -> check(sys.L, size(sys.Z, 1), "sys.Z length"),
+             sys -> check(sys.L, size(sys.P, 1), "sys.P length"),
+             sys -> check(sys.L, size(sys.M, 1), "sys.M length"),
                    
-                   check(sys.H, sys.H_eigendecomp[:vectors] * sys.H_eigendecomp[:values] * sys.H_eigendecomp[:vectors]'),
-    check(size(sys.H), (2^sys.L, 2^sys.L)),
-    check(size(sys.H_fn(0.0)), (2^sys.L, 2^sys.L)),
+             sys -> check(sys.H, sys.H_eigendecomp[:vectors] * sys.H_eigendecomp[:values] * sys.H_eigendecomp[:vectors]'),
+    sys -> check(size(sys.H), (2^sys.L, 2^sys.L)),
+    sys -> check(size(sys.H_fn(0.0)), (2^sys.L, 2^sys.L)),
     ]
     return invs
 end
@@ -89,10 +88,21 @@ type RFHeis{T} <: AbstractSpinHalfChain
     H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
 end
 
+function invariant_checks(::RFHeis)
+    parent = invariant_checks(AbstractSpinChain)
+    specific = [
+                sys -> check(sys.H_fn(0), sys.scale(0) * ( sys.bond + sys.h(0) * spdiagm(sys.field) )),
+                sys -> check(bond, sys.bond_evects * sys.bond_evals, sys.bond_evects'),
+                ]
+    return [parent; specific]
+end
+
+
 #can't figure out how to make "convert" work
 function despecialize(sys :: RFHeis{Float64})
     return SpinHalfChain(sys.L,sys.X,sys.Y,sys.Z,sys.P,sys.M,sys.H_fn,sys.H,sys.H_eigendecomp)
 end
+
 function pauli_matrices(L :: Int64)
     I = speye(2)
     sigx = sparse([0 1; 1 0])
