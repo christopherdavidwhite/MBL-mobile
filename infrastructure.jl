@@ -99,10 +99,12 @@ end
 
 
 #can't figure out how to make "convert" work
+#take an RFHeis and write the equivalent SpinHalfChain
 function despecialize(sys :: RFHeis{Float64})
     return SpinHalfChain(sys.L,sys.X,sys.Y,sys.Z,sys.P,sys.M,sys.H_fn,sys.H,sys.H_eigendecomp)
 end
 
+# Compute (sparse) Pauli matrices and ladder operators for a chain of length L
 function pauli_matrices(L :: Int64)
     I = speye(2)
     sigx = sparse([0 1; 1 0])
@@ -126,6 +128,7 @@ function pauli_matrices(L :: Int64)
     return (X,Y,Z,P,M)
 end
 
+#Construct an "empty" (identity-Hamiltonian) SpinHalfChain of length L
 function SpinHalfChain(L)
     pauli = pauli_matrices(L)
     H_fn = x -> speye(2^L)
@@ -134,6 +137,7 @@ function SpinHalfChain(L)
     return SpinHalfChain(L, pauli..., H_fn, H, H_eigendecomp)
 end
 
+#Construct an "empty" (identity-Hamiltonian) RFHeis of length L
 function RFHeis(L)
     pauli = pauli_matrices(L)
     scale = α -> 1
@@ -145,6 +149,7 @@ function RFHeis(L)
     bond_evects = eye(Complex{Float64}, 2^L)
     field = zeros(2^L)
     h = α -> 1
+    # XXX does not satisfy invariant H = field + bond
     return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, H, H_eigendecomp)
 end
 
