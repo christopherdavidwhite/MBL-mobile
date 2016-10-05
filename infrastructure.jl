@@ -48,8 +48,10 @@ function invariant_check(::AbstractSpinHalfChain)
                    
                    check(sys.H, sys.H_eigendecomp[:vectors] * sys.H_eigendecomp[:values] * sys.H_eigendecomp[:vectors]'),
     check(size(sys.H), (2^sys.L, 2^sys.L)),
-                   ]
+    check(size(sys.H_fn(0.0)), (2^sys.L, 2^sys.L)),
+    ]
     return invs
+end
 
 type RFHeis{T} <: AbstractSpinHalfChain
     L :: Int64                                             # System length
