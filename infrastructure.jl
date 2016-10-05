@@ -11,10 +11,6 @@ function check(val, target, name)
     assert(!fail)
 end
 
-function check(val :: Eigen, target :: Eigen, name)
-    check(val
-end
-
 abstract AbstractSpinHalfChain
 
 #Generic spin-1/2 chain. Fields:
