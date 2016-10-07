@@ -7,7 +7,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
                          coupling,
                          δ    :: Number,
                          wb   :: Number,
-                         T    :: Number,
+                         T,
                          Δtth :: Number,
                          βH   :: Number,
                          βC   :: Number,
@@ -17,8 +17,6 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     L = sys.L
 
     #SETUP (ETH THERMALIZATION)
-
-
     ρinitial = gibbs(sys.H_fn(0.0), βH)
     if verbose
         update!(sys, 0.0)
@@ -83,7 +81,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     end
     
     Wtot = WETHMBL + WMBLETH
-    if real(Wtot) < 0
+    if real(Wtot) < -1e-14
         neg_work = true
         if verbose
             println("negative work: $δETH $δMBL $βH $βC $v $δ")
@@ -112,11 +110,15 @@ function map_otto_efficiency(L    :: Int64,
                              h0s  :: Array{Float64,1},
                              coupling_op_fn :: Function,
                              wbs  :: Array{Float64,1},
+                             vs ,
                              Δtths :: Array{Float64, 1},
                              βHs   :: Array{Float64, 1},
                              βCs   :: Array{Float64, 1},
                              N_reals :: Int64,
-                             δfs  :: Array{Float64, 1} = [1/32])
+    δs  :: Array{Float64, 1} = [1/32],
+    print_per = 100
+    )
+    @show δs
     # sys.X[1] + sys.Z[1]
     sys = RFHeis(L)
     coupling_op = coupling_op_fn(sys)
@@ -141,39 +143,53 @@ function map_otto_efficiency(L    :: Int64,
                 :Δtths   => [],
                 :v       => [],
                 :wb      => [],
-    :std => [],
-    :δf   => [],
+    :std  => [],
+    :δ    => [],
+    :comptime => [],
+    :L => [],
     )
 
     @show N_reals
     @time for r in 1:N_reals
-        @show (L, r)
-        @time for h0 in h0s
+        for h0 in h0s
             srand(r*10)
             rfheis!(sys, h0, h1, Q)
             update!(sys, 1.0)
             d = sys.H_eigendecomp[:values]
-            for wb in wbs, δf in δfs, βH in βHs, βC in βCs, Δtth in Δtths
-                v = 0.01*wb^2
-                T = abs(h1 - h0)/v
-                δ = δf * T
+            for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, v in vs
+                if 0.0 == v
+                    T = "adiabatic"
+                else
+                    T = abs((h0 - h1)/v)
+                    N_steps = ceil(abs((h0 - h1)/(v*δ)))
+                    δ = T/N_steps
+                end
+                tic()
                 dct = otto_efficiency(sys, coupling_op, δ, wb, T, Δtth, βH, βC, false)
+                comptime = toq()
                 for k in keys(dct)
                     data[k] = push!(data[k], real(dct[k]))
                 end
-                data[:h0] = push!(data[:h0], h0) 
-                data[:βC] = push!(data[:βC], βC) 
-                data[:βH] = push!(data[:βH], βH) 
+                data[:h0]    = push!(data[:h0]   , h0) 
+                data[:βC]    = push!(data[:βC]   , βC) 
+                data[:βH]    = push!(data[:βH]   , βH) 
                 data[:Δtths] = push!(data[:Δtths], Δtths) 
-                data[:h1] = push!(data[:h1], h1) 
-                data[:v] = push!(data[:v], v) 
-                data[:wb] = push!(data[:wb], wb) 
-                data[:r] = push!(data[:r], r) 
-                data[:std] = push!(data[:std], std(d)) 
-                data[:δf] = push!(data[:δf], δf) 
+                data[:h1]    = push!(data[:h1]   , h1) 
+                data[:v]     = push!(data[:v]    , v)
+                data[:wb]    = push!(data[:wb]   , wb) 
+                data[:r]     = push!(data[:r]    , r) 
+                data[:std]   = push!(data[:std]  , std(d)) 
+                data[:δ]     = push!(data[:δ]    , δ) 
+                data[:L]     = push!(data[:L]    , L) 
+                data[:comptime] = push!(data[:comptime]    , comptime) 
             end
+        end
+        if 0 == r % print_per
+            @show (L, r, data[:comptime][end])
         end
     end
 
     return DataFrame(data);
 end
+
+
