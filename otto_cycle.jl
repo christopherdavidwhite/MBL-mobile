@@ -80,16 +80,22 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
         println("QETH $QETH")
     end
     
+    neg_work = false
     Wtot = WETHMBL + WMBLETH
+    Q = max(real(QETH), real(QMBL))
     if real(Wtot) < -1e-14
         neg_work = true
         if verbose
             println("negative work: $δETH $δMBL $βH $βC $v $δ")
         end
         η = NaN
+    elseif abs(Q) < 1e-10
+        if verbose
+            println("zero heat transfer (presumably no-op): $δETH $δMBL $βH $βC $v $δ")
+        end
+        η = NaN
     else
-        neg_work = false
-        η = (WETHMBL + WMBLETH)/max(real(QETH), real(QMBL))
+        η = (WETHMBL + WMBLETH)/Q
     end
 
     check(QETH + QMBL - (WETHMBL + WMBLETH ), 0, "total energy exchange")
