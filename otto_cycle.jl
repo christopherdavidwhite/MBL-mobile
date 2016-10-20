@@ -16,6 +16,18 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
 
     L = sys.L
 
+    
+    #Pull out the fields on the first two sites: for use in testing
+    #hacky and unidiomatic
+    if sys.L == 2 && typeof(sys) == RFHeis{Float64}
+        field_frontfactor = sys.scale(0.0) * sys.h(0) * 2.0^sys.L
+        field1 = trace(sys.H_fn(0.0) * sys.Z[1])/field_frontfactor
+        field2 = trace(sys.H_fn(0.0) * sys.Z[2])/field_frontfactor
+    else
+        field1 = 0.0
+        field2 = 0.0
+    end
+    
     #SETUP (ETH THERMALIZATION)
     ρinitial = gibbs(sys.H_fn(0.0), βH)
     if verbose
@@ -106,6 +118,8 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
                :QMBL     => QMBL,
                :η        => η,
                :neg_work => neg_work,
+               :field1   => field1,
+               :field2   => field2,
                )
 
     return out
@@ -153,6 +167,8 @@ function map_otto_efficiency(L    :: Int64,
     :δ    => [],
     :comptime => [],
     :L => [],
+    :field1 => [],
+    :field2 => [],
     )
 
     @show N_reals
