@@ -35,7 +35,6 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
         @show T
         @show T/δ
         println("beginning")
-        @show Es
         @show ediag(sys, ρinitial)
         @show round(ρinitial,5)
         @show sys.H
@@ -97,13 +96,10 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     Q = max(real(QETH), real(QMBL))
     if real(Wtot) < -1e-14
         neg_work = true
-        if verbose
-            println("negative work: $δETH $δMBL $βH $βC $v $δ")
-        end
         η = NaN
     elseif abs(Q) < 1e-10
         if verbose
-            println("zero heat transfer (presumably no-op): $δETH $δMBL $βH $βC $v $δ")
+            println("zero heat transfer (presumably no-op)")
         end
         η = NaN
     else
@@ -147,33 +143,35 @@ function map_otto_efficiency(L    :: Int64,
     @show wbs
 
     coupling = coupling_op
+    newdatavect(T) = zeros(T, N_reals*length(h0s)*length(wbs)*length(δs)*length(βHs)*length(βCs)*length(Δtths)*length(vs))
     data = Dict(
-                :WETHMBL => [],
-                :WMBLETH => [],
-                :WTOT    => [],
-                :QMBL    => [],
-                :QETH    => [],
-                :η       => [],
-                :r       => [],
-                :neg_work => [],
-                :h0      => [],
-                :h1      => [],
-                :βH      => [],
-                :βC      => [],
-                :Δtths   => [],
-                :v       => [],
-                :wb      => [],
-    :std  => [],
-    :δ    => [],
-    :comptime => [],
-    :L => [],
-    :field1 => [],
-    :field2 => [],
+                :WETHMBL => newdatavect(Float64),
+                :WMBLETH => newdatavect(Float64),
+                :WTOT    => newdatavect(Float64),
+                :QMBL    => newdatavect(Float64),
+                :QETH    => newdatavect(Float64),
+                :η       => newdatavect(Float64),
+                :r       => newdatavect(Int64),
+                :neg_work => newdatavect(Float64),
+                :h0      => newdatavect(Float64),
+                :h1      => newdatavect(Float64),
+                :βH      => newdatavect(Float64),
+                :βC      => newdatavect(Float64),
+                :Δtths   => newdatavect(Float64),
+                :v       => newdatavect(Float64),
+                :wb      => newdatavect(Float64),
+    :std  => newdatavect(Float64),
+    :δ    => newdatavect(Float64),
+    :comptime => newdatavect(Float64),
+    :L => newdatavect(Float64),
+    :field1 => newdatavect(Float64),
+    :field2 => newdatavect(Float64),
     )
 
+    c = 0
     @show N_reals
     @time for r in 1:N_reals
-        for h0 in h0s
+       for h0 in h0s
             srand(r*10)
             rfheis!(sys, h0, h1, Q)
             update!(sys, 1.0)
@@ -189,21 +187,22 @@ function map_otto_efficiency(L    :: Int64,
                 tic()
                 dct = otto_efficiency(sys, coupling_op, δ, wb, T, Δtth, βH, βC, false)
                 comptime = toq()
+                c += 1
                 for k in keys(dct)
-                    data[k] = push!(data[k], real(dct[k]))
+                    data[k][c] =  real(dct[k])
                 end
-                data[:h0]    = push!(data[:h0]   , h0) 
-                data[:βC]    = push!(data[:βC]   , βC) 
-                data[:βH]    = push!(data[:βH]   , βH) 
-                data[:Δtths] = push!(data[:Δtths], Δtths) 
-                data[:h1]    = push!(data[:h1]   , h1) 
-                data[:v]     = push!(data[:v]    , v)
-                data[:wb]    = push!(data[:wb]   , wb) 
-                data[:r]     = push!(data[:r]    , r) 
-                data[:std]   = push!(data[:std]  , std(d)) 
-                data[:δ]     = push!(data[:δ]    , δ) 
-                data[:L]     = push!(data[:L]    , L) 
-                data[:comptime] = push!(data[:comptime]    , comptime) 
+                data[:h0][c]    =  h0 
+                data[:βC][c]    =  βC 
+                data[:βH][c]    =  βH 
+                data[:Δtths][c] =  Δtth
+                data[:h1][c]    =  h1
+                data[:v][c]     =  v
+                data[:wb][c]    =  wb 
+                data[:r][c]     =  r 
+                data[:std][c]   =  std(d)
+                data[:δ][c]     =  δ 
+                data[:L][c]     =  L 
+                data[:comptime][c] =  comptime
             end
         end
         if 0 == r % print_per

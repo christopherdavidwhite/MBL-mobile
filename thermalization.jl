@@ -35,16 +35,21 @@ function construct_γs(γoverall    :: Float64,
     
     sys_bw = (maximum(Es) - minimum(Es))
     max_expt = 64
-    if β*sys_bw > max_expt && β * bath_w > max_expt
-        println( "WARNING: β*sys_bw = $(β*sys_bw)> 10 && β*bath_w = $(β*bath_w) > 10")
-    end
     Vs = sys.H_eigendecomp[:vectors]
     N = length(Es)
     γ = zeros(Float64, (N,N))
     for α in 1:N
         for η in 1:N
             if α != η && abs(Es[α] - Es[η]) < bath_w
-                γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)  
+                if β*abs(Es[α] - Es[η]) >= 40*log(2)
+                    if Es[α] < Es[η]
+                        γ[α, η] = γoverall * 1.0
+                    else
+                        γ[α, η] = 0 
+                    end
+                else
+                    γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)
+                end
             end
         end
     end

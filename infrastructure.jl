@@ -3,10 +3,10 @@ import Base.convert
 tol = 1e-10
 
 function check(val, target, name)
-    diff = val - target
-    fail = maximum(abs(diff)) > tol
+    err = val - target
+    fail = maximum(abs(err)) > tol
     if fail
-        println((name, val, target, diff))
+        println((name, val, target, err))
     end
     assert(!fail)
 end
@@ -31,7 +31,7 @@ type SpinHalfChain{T} <: AbstractSpinHalfChain
     
     #Note: these are caches, and require updating!
     H :: SparseMatrixCSC{T, Int64}                         # Cache of Hamiltonian at "current" α
-    H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
+    H_eigendecomp :: Base.LinAlg.Eigen                     # Cache of eig'decomp. of Ham. at "current" α
 end
 
 function invariant_checks(::AbstractSpinHalfChain)
@@ -81,16 +81,16 @@ type RFHeis{T} <: AbstractSpinHalfChain
     
     #Note: these are caches, and require updating!
     H :: SparseMatrixCSC{T, Int64}                         # Cache of Hamiltonian at "current" α
-    H_eigendecomp                                          # Cache of eig'decomp. of Ham. at "current" α
+    H_eigendecomp :: Base.LinAlg.Eigen                     # Cache of eig'decomp. of Ham. at "current" α
 end
 
 function invariant_checks(::RFHeis)
-    parent = invariant_checks(AbstractSpinChain)
+    parent_invariants = invariant_checks(AbstractSpinHalfChain)
     specific = [
                 sys -> check(sys.H_fn(0), sys.scale(0) * ( sys.bond + sys.h(0) * spdiagm(sys.field) )),
-                sys -> check(bond, sys.bond_evects * sys.bond_evals, sys.bond_evects'),
+                sys -> check(sys.bond, sys.bond_evects * sys.bond_evals, sys.bond_evects'),
                 ]
-    return [parent; specific]
+    return [parent_invariants; specific]
 end
 
 
@@ -102,7 +102,6 @@ end
 
 # Compute (sparse) Pauli matrices and ladder operators for a chain of length L
 function pauli_matrices(L :: Int64)
-    I = speye(2)
     sigx = sparse([0 1; 1 0])
     sigy = sparse([0 -im; im 0])
     sigz = sparse([1 0; 0 -1])
