@@ -48,7 +48,8 @@ function construct_γs(γoverall    :: Float64,
                         γ[α, η] = 0 
                     end
                 else
-                    γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)
+                    Zαη = exp(-β*(Es[α] - Es[η])/2) + exp(β*(Es[α] - Es[η])/2)
+                    γ[α,η] = γoverall * exp(-β*(Es[α] - Es[η])/2)/Zαη
                 end
             end
         end
