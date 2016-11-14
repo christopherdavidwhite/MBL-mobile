@@ -1,6 +1,14 @@
 #This way of using multiple dispatch is brittle and not naturally extensible.
 #Better would be to define an abstract "coupling_scheme" type and a number of subtypes,
 #but that would be ridiculous over-engineering, seems to me.
+
+function coupling_factor(S :: AbstractSpinHalfChain, op :: Symbol,)
+    if Symbol == :trivial
+        L = sys.L
+        return ones(2^L, 2^L)
+    end
+end
+
 function coupling_factor(S :: AbstractSpinHalfChain, op :: SparseMatrixCSC,)
     V = S.H_eigendecomp[:vectors] #eigenvectors of Hamiltonian
     couple = abs(V'*op*V).^2
