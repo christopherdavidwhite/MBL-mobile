@@ -3,7 +3,9 @@
 #but that would be ridiculous over-engineering, seems to me.
 function coupling_factor(S :: AbstractSpinHalfChain, op :: SparseMatrixCSC,)
     V = S.H_eigendecomp[:vectors] #eigenvectors of Hamiltonian
-    return abs(V'*op*V).^2
+    couple = abs(V'*op*V).^2
+    couple = couple .* (couple .> 1e-14)
+    return couple
 end
 
 function coupling_factor(S :: AbstractSpinHalfChain, scheme :: Tuple{Symbol, Int64})
