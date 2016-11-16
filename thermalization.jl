@@ -2,10 +2,12 @@
 #Better would be to define an abstract "coupling_scheme" type and a number of subtypes,
 #but that would be ridiculous over-engineering, seems to me.
 
-function coupling_factor(S :: AbstractSpinHalfChain, op :: Symbol,)
-    if Symbol == :trivial
-        L = sys.L
+function coupling_factor(S :: AbstractSpinHalfChain, scheme :: Symbol,)
+    if scheme == :trivial
+        L = S.L
         return ones(2^L, 2^L)
+    else
+        error("Unkown coupling scheme $scheme")
     end
 end
 
@@ -114,15 +116,36 @@ function decayrates(sys, Γ, z, op :: SparseMatrixCSC )
     return (rates, op_weights)
 end
 
+# returns "thermalizing matrix"
+#
+# can think of this as pswap w/ gibbs distribution on each subspace
+#
+# Write M = thermalizer(Γ). Then for any v, Γv is a vector consisting
+# of "gibbs state" on each subspace, weighted by Σ_{subspace} v.
+
+function thermalizer(Γ)
+    NΓ = QRnull(Γ)
+    Zs = vec(ones(size(Γ,1))' * NΓ ) #Partition functions for the Gibbs states on the subspace
+    NΓ = NΓ * diagm(1.0./Zs)   #rescale the null space basis vectors so they have
+
+    assert(all(NΓ .> -1e-15))  #make sure none of the basis vectors have neg cpts (are proper gibbs states)
+
+    return NΓ * ceil(NΓ)'
+end
+
 #Note: assumes ρ in energy eigenbasis*
 function thermalize(sys, Γ, z, ω, ρ, t)
     ρdiag = diag(ρ)
-    ρoffdiag = ρ - diagm(ρdiag)
+    if Inf == t
+        return diagm(thermalizer(Γ) * ρdiag)
+    else            
+        ρoffdiag = ρ - diagm(ρdiag)
     
-    ρoffdiag = ρoffdiag .* exp(-t*(z + im*ω))
-    ρdiag    = expm(t*Γ)*ρdiag
+        ρoffdiag = ρoffdiag .* exp(-t*(z + im*ω))
+        ρdiag    = expm(t*Γ)*ρdiag
 
-    return ρoffdiag + diagm(ρdiag)
+        return ρoffdiag + diagm(ρdiag)
+    end
 end
 
 chain(f, lst) = [f(x2, x1) for (x1, x2) in zip(lst[1:end-1], lst[2:end])]
