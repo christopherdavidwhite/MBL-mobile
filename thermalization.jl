@@ -124,13 +124,21 @@ end
 # of "gibbs state" on each subspace, weighted by Σ_{subspace} v.
 
 function thermalizer(Γ)
-    NΓ = QRnull(Γ)
-    Zs = vec(ones(size(Γ,1))' * NΓ ) #Partition functions for the Gibbs states on the subspace
-    NΓ = NΓ * diagm(1.0./Zs)   #rescale the null space basis vectors so they have
+    if Γ |> abs |> maximum == 0.0
+        return eye(size(Γ, 1))
+    else
+        Γrat = minimum(abs(Γ[find(Γ)]))/maximum(Γ)
+        if Γrat < eps(Float64)
+            error("Ratio of smallest element of Γ to largest too small: $Γrat")
+        end
+                
+        NΓ = nullspace(Γ)
+        Zs = vec(ones(size(Γ,1))' * NΓ ) #Partition functions for the Gibbs states on the subspace
+        NΓ = NΓ * diagm(1.0./Zs)   #rescale the null space basis vectors so they have
+        assert(all(NΓ .> -1e-8))  #make sure none of the basis vectors have neg cpts (are proper gibbs states)
 
-    assert(all(NΓ .> -1e-15))  #make sure none of the basis vectors have neg cpts (are proper gibbs states)
-
-    return NΓ * ceil(NΓ)'
+        return NΓ * ceil(NΓ)'
+    end
 end
 
 #Note: assumes ρ in energy eigenbasis*
