@@ -132,7 +132,7 @@ function thermalizer(sys, βC, Γ :: Array{Float64,2})
     Es = sys.H_eigendecomp[:values]
     for V in subspaces
         gibbs = zeros(length(V))
-        if βC * (maximum(Es[V]) - minimum(Es[V])) > 40/log(2)
+        if βC * (maximum(Es[V]) - minimum(Es[V])) > 40/log(2) || βC == Inf
 #            @show βC
             x, i = findmin(Es[V])
             if countnz(Es[V] .== x) > 1
