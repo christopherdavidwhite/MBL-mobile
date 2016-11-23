@@ -116,36 +116,45 @@ function decayrates(sys, Γ, z, op :: SparseMatrixCSC )
     return (rates, op_weights)
 end
 
+
 # returns "thermalizing matrix"
 #
 # can think of this as pswap w/ gibbs distribution on each subspace
 #
-# Write M = thermalizer(Γ). Then for any v, Γv is a vector consisting
+# Write M = thermalizer(βC, γ). Then for any v, Mv is a vector consisting
 # of "gibbs state" on each subspace, weighted by Σ_{subspace} v.
 
-function thermalizer(Γ)
-    if Γ |> abs |> maximum == 0.0
-        return eye(size(Γ, 1))
-    else
-        Γrat = minimum(abs(Γ[find(Γ)]))/maximum(Γ)
-        if Γrat < eps(Float64)
-            error("Ratio of smallest element of Γ to largest too small: $Γrat")
+# works just as well with Γ as with γ
+function thermalizer(sys, βC, Γ :: Array{Float64,2})
+    bathgraph = Γ |> sparse |> DiGraph
+    subspaces = connected_components(bathgraph)
+    T = Γ |> size |> zeros
+    Es = sys.H_eigendecomp[:values]
+    for V in subspaces
+        gibbs = zeros(length(V))
+        if βC * (maximum(Es[V]) - minimum(Es[V])) > 40/log(2)
+#            @show βC
+            x, i = findmin(Es[V])
+            if countnz(Es[V] .== x) > 1
+                error("Ground state degeneracy")
+            else
+                gibbs[i] = 1.0
+            end
+        else
+            gibbs = exp(-βC*(Es[V] - minimum(Es[V])))
+            gibbs = gibbs/sum(gibbs)
         end
-                
-        NΓ = nullspace(Γ)
-        Zs = vec(ones(size(Γ,1))' * NΓ ) #Partition functions for the Gibbs states on the subspace
-        NΓ = NΓ * diagm(1.0./Zs)   #rescale the null space basis vectors so they have
-        assert(all(NΓ .> -1e-8))  #make sure none of the basis vectors have neg cpts (are proper gibbs states)
-
-        return NΓ * ceil(NΓ)'
+        for j in V
+            T[V, j] = gibbs
+        end
     end
+    return T
 end
 
-#Note: assumes ρ in energy eigenbasis*
-function thermalize(sys, Γ, z, ω, ρ, t)
+function thermalize(sys, βC, Γ, z, ω, ρ, t)
     ρdiag = diag(ρ)
     if Inf == t
-        return diagm(thermalizer(Γ) * ρdiag)
+        return diagm(thermalizer(sys, βC, Γ) * diag(ρ))
     else            
         ρoffdiag = ρ - diagm(ρdiag)
     

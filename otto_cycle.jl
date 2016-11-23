@@ -55,7 +55,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     V = sys.H_eigendecomp[:vectors]
     V :: Array{Complex{Float64},2}
     ρE = V' * ρ * V
-    ρp = V * thermalize(sys, Γ, z, ω, ρE, Δtth) * V'
+    ρp = V * thermalize(sys, βC, Γ, z, ω, ρE, Δtth) * V'
     if verbose
         @show ediag(sys, ρ)
         @show real(diag(ρE))
