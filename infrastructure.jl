@@ -78,9 +78,10 @@ type RFHeis{T} <: AbstractSpinHalfChain
     bond_evals  :: Array{Float64,1}                        # Eigenvalues of bond term
     bond_evects :: Array{Complex{Float64},2}               # Eigenvectors of bond term
     field :: Array{T,1}                                    # "field" term: part diagonal in comp. basis
+    field_mat :: Array{T,2}                                    # "field" term: part diagonal in comp. basis
     
     #Note: these are caches, and require updating!
-    H :: SparseMatrixCSC{T, Int64}                         # Cache of Hamiltonian at "current" α
+    H :: Array{T, 2}                         # Cache of Hamiltonian at "current" α
     H_eigendecomp :: Base.LinAlg.Eigen                     # Cache of eig'decomp. of Ham. at "current" α
 end
 
@@ -137,14 +138,15 @@ function RFHeis(L)
     pauli = pauli_matrices(L)
     scale = α -> 1
     H_fn = x -> speye(2^L)
-    H = speye(2^L)
+    H = eye(2^L)
     H_eigendecomp = eigfact(full(H))
     bond = zeros(2^L,2^L)
     bond_evals = zeros(2^L)
     bond_evects = eye(Complex{Float64}, 2^L)
     field = ones(2^L)
+    field_mat = diagm(field)
     h = α -> 1
-    return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, H, H_eigendecomp)
+    return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, field_mat, H, H_eigendecomp)
 end
 
 function update!{T}(S :: AbstractSpinHalfChain, H :: SparseMatrixCSC{T, Int64})
@@ -152,7 +154,12 @@ function update!{T}(S :: AbstractSpinHalfChain, H :: SparseMatrixCSC{T, Int64})
     S.H_eigendecomp = eigfact(full(S.H))
 end
 
-function update!(S :: AbstractSpinHalfChain, t :: Float64)
+function update!{T}(S :: RFHeis{T}, α :: Float64)
+    S.H = (S.bond + S.h(α) * (S.field_mat)) * S.scale(α)
+    S.H_eigendecomp = eigfact(S.H)
+end
+
+function update!(S :: SpinHalfChain, t :: Float64)
     S.H = S.H_fn(t)
     S.H_eigendecomp = eigfact(full(S.H))
 end
@@ -163,10 +170,9 @@ function gibbs(H :: SparseMatrixCSC, β :: Float64)
     return ρ
 end
 
-
 #multiply Hamiltonian by 1/Q.
 #Q is a function of h
-function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h -> 1)
+function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h -> 1, bond_sgn = +1)
     L = sys.L
     (M,P,Z) = (sys.M, sys.P, sys.Z)
     
@@ -174,9 +180,9 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
 
     bond = spzeros(Float64, 2^L, 2^L)
     for j in 1:(L - 1)
-        bond += (P[j]*M[j+1] + M[j]P[j+1])/2 + Z[j] * Z[j+1]
+        bond += bond_sgn * ((P[j]*M[j+1] + M[j]P[j+1])/2 + Z[j] * Z[j+1])
     end
-    #bond += (P[L]M[1] + M[L]P[1])/2 + Z[L] * Z[1]
+    #bond += bond_sgn * (P[L]M[1] + M[L]P[1])/2 + Z[L] * Z[1]
 
     field = spzeros(Float64, 2^L, 2^L)
     for j in 1:L
@@ -186,6 +192,7 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
     bond_evals, bond_evects = bond |> full|> eig 
     sys.bond  = full(bond)
     sys.field = diag(field)
+    sys.field_mat = full(field)
     sys.scale = α -> 1.0/Q(sys.h(α))
     sys.h     = α -> (h0 * (1 - α) + h1* α)
     sys.H_fn  = α -> (bond + sys.h(α) * (field)) * sys.scale(α)
