@@ -48,14 +48,48 @@ function invariant_checks(::AbstractSpinHalfChain)
     return invs
 end
 
-type RFHeis{T} <: AbstractSpinHalfChain
+abstract RFHeis <: AbstractSpinHalfChain
+type NonconservingRFHeis{T} <: RFHeis
     L :: Int64                                             # System length
     X :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite Pauli X matrices
     Y :: Array{SparseMatrixCSC{Complex{Float64},Int64}, 1} # -------------------- Y --------
     Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # -------------------- Z --------
     P :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite raising  operators x + iy
     M :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # List of onsite lowering operators x - iy
+    PM :: Array{SparseMatrixCSC{Float64        ,Int64}, 1} 
 
+    # System's "real" Hamiltonian is
+    #
+    #    H(α) = scale(α) * ( bond + h(α) * hdiagm(field) )
+    # 
+    # H_fn returns exactly this: when you do α |> sys.H_fn |> eig,
+    # you're diagonalizing the Hamiltonian at a tuning point α. We
+    # keep track of the scale separately to make time evolution
+    # easier.
+    
+    # H_fn  : α ∈ [0,1] --> SparseMatrixCSC
+    # scale : α ∈ [0,1] --> Float64
+    # h     : α ∈ [0,1] --> Float64
+    
+    H_fn  :: Function                                      # Returns instantaneous Hamiltonian as fn of α
+    scale :: Function                                      # Returns overall scale as fn of α
+    h     :: Function                                      # Returns magnitude of field: Hamiltonian =
+
+    bond  :: Array{T,2}                                    # "Bond term": part off-diagonal in comp. basis
+    bond_evals  :: Array{Float64,1}                        # Eigenvalues of bond term
+    bond_evects :: Array{Complex{Float64},2}               # Eigenvectors of bond term
+    field :: Array{T,1}                                    # "field" term: part diagonal in comp. basis
+    field_mat :: Array{T,2}                                    # "field" term: part diagonal in comp. basis
+    
+    #Note: these are caches, and require updating!
+    H :: Array{T, 2}                         # Cache of Hamiltonian at "current" α
+    H_eigendecomp :: Base.LinAlg.Eigen                     # Cache of eig'decomp. of Ham. at "current" α
+end
+
+type ConservingRFHeis{T} <: RFHeis
+    L :: Int64                                             # System length
+    Z :: Array{SparseMatrixCSC{Float64         ,Int64}, 1} # -------------------- Z --------
+    PM :: Array{SparseMatrixCSC{Float64        ,Int64}, 1} 
 
     # System's "real" Hamiltonian is
     #
@@ -97,7 +131,7 @@ end
 
 #can't figure out how to make "convert" work
 #take an RFHeis and write the equivalent SpinHalfChain
-function despecialize(sys :: RFHeis{Float64})
+function despecialize(sys :: NonconservingRFHeis{Float64})
     return SpinHalfChain(sys.L,sys.X,sys.Y,sys.Z,sys.P,sys.M,sys.H_fn,sys.H,sys.H_eigendecomp)
 end
 
@@ -124,6 +158,93 @@ function pauli_matrices(L :: Int64)
     return (X,Y,Z,P,M)
 end
 
+#Z, PM in sector with filling fraction f
+function conserving_pauli_matrices(L :: Int64, f :: Float64)
+    n = round(Int, L*f) #number of particles
+    
+    # We can imagine visiting the L choose n combinations of locations
+    # (that is, the L choose n different configurations with exactly n
+    # particles) in lexicographical order; this order defines a
+    # mapping
+    #
+    #     state |---> order visited ~= basis vector.
+    #
+    # We need a way to compute this map: I've taken a configuration
+    # and hopped a particle: what basis vector does the new state
+    # correspond to?
+    #
+    # This function 'rank' does that. It is due to Lehmer; cf Knuth v4
+    # fasc. 3 pp 5-6.
+    #
+    #For example:
+    #
+    # L = 6
+    # n = 3
+    # for c in combinations(1:L, 2)
+    #     l = zeros(Int64, L)
+    #     l[c] = 1
+    #     l = reverse(l)
+    #     @show l, rank(l)
+    # end
+    
+    function rank(st :: Array{Int64})
+        ct = reverse(find(st) - 1)
+        t  = length(ct):-1:1
+        return sum(map(binomial, ct, t)) + 1
+    end
+
+    #These may be slow. (It shouldn't matter, because I'll be re-using
+    #the Paulis for every disorder realization and parameter.)
+    #
+    #  1. Chief problem: I probably don't insert elements in an order
+    #  that's nice for a SparseMatrixCSC. This can probably be fixed
+    #  by changing the order in which I walk through the basis states:
+    #  want increasing rank (row or column? Don't know.) Might also
+    #  want to separate out function
+    #
+    #  2. Might also want to pull inner loop into own function. This
+    #  is lower priority.
+    
+    function spZ(j :: Int64, n :: Int64, L :: Int64)
+        assert(1 <= j <= L)
+        assert(1 <= n < L)
+        N = binomial(L,n)
+        Z = spzeros(N,N)
+        for c in combinations(1:L, n)
+            l = zeros(Int64, L)
+            l[c] = 1
+            b = rank(l)
+            Z[b,b] = 2*l[j] - 1
+        end
+        return Z
+    end
+
+    function spPM(jP :: Int64, jM :: Int64, n :: Int64, L :: Int64)
+        assert(1 <= jP <= L)
+        assert(1 <= jM <= L)
+        assert(1 <= n < L)
+        N = binomial(L,n)
+        PM = spzeros(N,N)
+        for c in combinations(1:L, n)
+            l = zeros(Int64, L)
+            l[c] = 1
+            b = rank(l)
+            if ((1 == l[jM]) & (0 == l[jP]))
+                lp = copy(l)
+                lp[jM] = 0
+                lp[jP] = 1
+                bp = rank(lp)
+                PM[bp,b] = 1
+            end
+        end
+        return PM
+    end
+
+    Z = [spZ(j, n, L) for j in 1:L]
+    PM = [spPM(jP, jM, n, L) for (jP, jM) in zip(1:L, circshift(1:L, -1))]
+    return Z, PM
+end
+
 #Construct an "empty" (identity-Hamiltonian) SpinHalfChain of length L
 function SpinHalfChain(L)
     pauli = pauli_matrices(L)
@@ -146,7 +267,26 @@ function RFHeis(L)
     field = ones(2^L)
     field_mat = diagm(field)
     h = α -> 1
-    return RFHeis(L, pauli..., H_fn, scale, h, bond, bond_evals, bond_evects, field, field_mat, H, H_eigendecomp)
+    PM = map(*, pauli[4], circshift(pauli[4], -1))
+    return NonconservingRFHeis(L, pauli..., PM, H_fn, scale, h, bond, bond_evals, bond_evects, field, field_mat, H, H_eigendecomp)
+end
+
+#Construct an "empty" (identity-Hamiltonian) RFHeis of length L
+function ConservingRFHeis(L :: Int64, f :: Float64)
+    n = round(Int, L*f) #number of particles
+    N = binomial(L,n)
+    Z, PM = conserving_pauli_matrices(L, f)
+    scale = α -> 1
+    H_fn = x -> speye(N)
+    H = eye(N)
+    H_eigendecomp = eigfact(full(H))
+    bond = zeros(N,N)
+    bond_evals = zeros(N)
+    bond_evects = eye(Complex{Float64}, N)
+    field = ones(N)
+    field_mat = diagm(field)
+    h = α -> 1
+    return ConservingRFHeis(L, Z, PM, H_fn, scale, h, bond, bond_evals, bond_evects, field, field_mat, H, H_eigendecomp)
 end
 
 function update!{T}(S :: AbstractSpinHalfChain, H :: SparseMatrixCSC{T, Int64})
@@ -154,7 +294,7 @@ function update!{T}(S :: AbstractSpinHalfChain, H :: SparseMatrixCSC{T, Int64})
     S.H_eigendecomp = eigfact(full(S.H))
 end
 
-function update!{T}(S :: RFHeis{T}, α :: Float64)
+function update!(S :: RFHeis, α :: Float64)
     S.H = (S.bond + S.h(α) * (S.field_mat)) * S.scale(α)
     S.H_eigendecomp = eigfact(S.H)
 end
@@ -172,17 +312,21 @@ end
 
 #multiply Hamiltonian by 1/Q.
 #Q is a function of h
-function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h -> 1, bond_sgn = +1)
+function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h -> 1, bc = :open, bond_sgn = +1)
     L = sys.L
-    (M,P,Z) = (sys.M, sys.P, sys.Z)
+    (M,P,Z,PM) = (sys.M, sys.P, sys.Z, sys.PM)
     
     h = 2*rand(L) - 1
 
     bond = spzeros(Float64, 2^L, 2^L)
     for j in 1:(L - 1)
-        bond += bond_sgn * ((P[j]*M[j+1] + M[j]P[j+1])/2 + Z[j] * Z[j+1])
+        bond += bond_sgn * ((PM[j] + PM[j]')/2 + Z[j] * Z[j+1])
     end
-    #bond += bond_sgn * (P[L]M[1] + M[L]P[1])/2 + Z[L] * Z[1]
+    if bc == :periodic
+        bond += bond_sgn * ((PM[L] + PM[L]')/2 + Z[L] * Z[1])
+    elseif bc != :open
+        error("unrecognized bc", bc)
+    end
 
     field = spzeros(Float64, 2^L, 2^L)
     for j in 1:L

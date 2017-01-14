@@ -2,6 +2,7 @@ module MBLSZ
 
 using DataFrames
 using LightGraphs
+using Combinatorics
 
 export AbstractSpinHalfChain, SpinHalfChain, RFHeis
 export thermalization_mats

@@ -19,7 +19,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     
     #Pull out the fields on the first two sites: for use in testing
     #hacky and unidiomatic
-    if sys.L == 2 && typeof(sys) == RFHeis{Float64}
+    if sys.L == 2 && typeof(sys) == RFHeis
         field_frontfactor = sys.scale(0.0) * sys.h(0) * 2.0^sys.L
         field1 = trace(sys.H_fn(0.0) * sys.Z[1])/field_frontfactor
         field2 = trace(sys.H_fn(0.0) * sys.Z[2])/field_frontfactor
