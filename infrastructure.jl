@@ -140,8 +140,8 @@ function pauli_matrices(L :: Int64)
     sigx = sparse([0 1; 1 0])
     sigy = sparse([0 -im; im 0])
     sigz = sparse([1 0; 0 -1])
-    sigp = sparse([0 2; 0 0])
-    sigm = sparse([0 0; 2 0])
+    sigp = sparse([0 1; 0 0])
+    sigm = sparse([0 0; 1 0])
     
     X = [reduce(kron, (speye(2^(j-1)), sigx, speye(2^(L - j)))) for j in 1:L]
     Y = [reduce(kron, (speye(2^(j-1)), sigy, speye(2^(L - j)))) for j in 1:L]
@@ -320,10 +320,10 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
 
     bond = spzeros(Float64, 2^L, 2^L)
     for j in 1:(L - 1)
-        bond += bond_sgn * ((PM[j] + PM[j]')/2 + Z[j] * Z[j+1])
+        bond += 2 * bond_sgn * ((PM[j] + PM[j]') + Z[j] * Z[j+1])
     end
     if bc == :periodic
-        bond += bond_sgn * ((PM[L] + PM[L]')/2 + Z[L] * Z[1])
+        bond += 2 * bond_sgn * ((PM[L] + PM[L]') + Z[L] * Z[1])
     elseif bc != :open
         error("unrecognized bc", bc)
     end
