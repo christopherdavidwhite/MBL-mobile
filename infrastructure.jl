@@ -314,11 +314,11 @@ end
 #Q is a function of h
 function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h -> 1, bc = :open, bond_sgn = +1)
     L = sys.L
-    (M,P,Z,PM) = (sys.M, sys.P, sys.Z, sys.PM)
-    
+    (Z,PM) = (sys.Z, sys.PM)
+    N = size(Z[1], 1)
     h = 2*rand(L) - 1
 
-    bond = spzeros(Float64, 2^L, 2^L)
+    bond = spzeros(Float64, N,N)
     for j in 1:(L - 1)
         bond += 2 * bond_sgn * ((PM[j] + PM[j]') + Z[j] * Z[j+1])
     end
@@ -328,7 +328,7 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
         error("unrecognized bc", bc)
     end
 
-    field = spzeros(Float64, 2^L, 2^L)
+    field = spzeros(Float64, N,N)
     for j in 1:L
         field += Z[j]*h[j]
     end

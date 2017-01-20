@@ -4,7 +4,7 @@ using DataFrames
 using LightGraphs
 using Combinatorics
 
-export AbstractSpinHalfChain, SpinHalfChain, RFHeis
+export AbstractSpinHalfChain, SpinHalfChain, RFHeis, ConservingRFHeis
 export thermalization_mats
 export rfheis!, otto_efficiency, map_otto_efficiency, construct_γs, update!
 export blank_data_hash
