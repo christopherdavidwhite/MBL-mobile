@@ -320,12 +320,12 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
 
     bond = spzeros(Float64, N,N)
     for j in 1:(L - 1)
-        bond += 2 * bond_sgn * ((PM[j] + PM[j]') + Z[j] * Z[j+1])
+        bond += bond_sgn * (2 * (PM[j] + PM[j]') + Z[j] * Z[j+1])
     end
     if bc == :periodic
-        bond += 2 * bond_sgn * ((PM[L] + PM[L]') + Z[L] * Z[1])
+        bond += bond_sgn * (2 * (PM[L] + PM[L]') + Z[L] * Z[1])
     elseif bc != :open
-        error("unrecognized bc", bc)
+        error("unrecognized bc ", bc)
     end
 
     field = spzeros(Float64, N,N)
