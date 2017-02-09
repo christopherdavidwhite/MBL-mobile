@@ -132,21 +132,21 @@ function map_otto_efficiency(L    :: Int64,
                              βCs   :: Array{Float64, 1},
     N_reals :: Int64,
     conserving = false,
-    filling_fraction = 0.5, #only if conserving
     δs  :: Array{Float64, 1} = [1/32],
     print_per = 100,
     )
     @show δs
     # sys.X[1] + sys.Z[1]
-    if conserving
-        sys = ConservingRFHeis(L, filling_fraction)
+    if conserving #half-filling
+        sys = ConservingRFHeis(L, 0.5)
+        Q(h) = sqrt(3*L - 2 +L.*h.^2/3)
     else
         sys = RFHeis(L)
+        Q(h) = sqrt(3(L - 1) + L*h.^2/3)
     end
     
     coupling_op = coupling_op_fn(sys)
     
-    Q = h -> sqrt(3(L - 1) + L*h.^2/3)
     @show wbs
 
     coupling = coupling_op
