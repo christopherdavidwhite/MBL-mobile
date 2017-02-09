@@ -4,8 +4,7 @@
 
 function coupling_factor(S :: AbstractSpinHalfChain, scheme :: Symbol,)
     if scheme == :trivial
-        L = S.L
-        return ones(2^L, 2^L)
+        return full(ones(S.Z[1]))
     else
         error("Unkown coupling scheme $scheme")
     end
