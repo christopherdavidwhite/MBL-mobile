@@ -43,6 +43,7 @@ function forwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: Float64, 
     for t in 0:δ:(T-δ)
         U = timestep(sys, t/T, δ, U)
     end
+    update!(sys, 1.0)
     return U
 end
 
@@ -51,6 +52,7 @@ function backwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: Float64,
     for t in T:δ:δ
         U = timestep(sys, t/T, δ, U)
     end
+    update!(sys, 0.0)
     return U
 end
 
@@ -66,6 +68,7 @@ function forwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
         Q = (Qfn(h) :: Float64)
         U = timestep(bond_evals, bond_evects, field, h, δ*Q, U)
     end
+    update!(sys, 1.0)
     return U
 end
 
@@ -81,6 +84,7 @@ function backwardalpha_timeevolution(sys :: RFHeis, T :: Float64, δ :: Float64)
         Q = (Qfn(h) :: Float64)
         U = timestep(bond_evals, bond_evects, field, h, δ*Q, U)
     end
+    update!(sys, 0.0)
     return U
 end
 
@@ -93,13 +97,15 @@ function forwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: AbstractS
         #Trick is to write unitaries that'll do what I want: move me
         #from diagonal in one basis to diagonal in the other.
 
-        #Could probably (have) cached one of these. Will worry about
-        #that later.
-        d0, V0 = 0 |> sys.H_fn |> full |> eig 
+        #assumes already updated to t = 0
+        
+        d0, V0 = sys.H_eigendecomp[:values], sys.H_eigendecomp[:vectors]
         p0 = sortperm(d0) #make sure eigenvalues are sorted
         V0 = V0[p0, p0]
+
+        update!(sys, 1.0)
         
-        d1, V1 = 1 |> sys.H_fn |> full |> eig 
+        d1, V1 = sys.H_eigendecomp[:values], sys.H_eigendecomp[:vectors]
         p1 = sortperm(d1)
         V1 = V1[p1, p1]
         
@@ -117,15 +123,18 @@ function backwardalpha_timeevolution(sys :: AbstractSpinHalfChain, T :: Abstract
         #Trick is to write unitaries that'll do what I want: move me
         #from diagonal in one basis to diagonal in the other.
 
-        #Could probably (have) cached one of these. Will worry about
-        #that later.
-        d0, V0 = 0 |> sys.H_fn |> full |> eig 
+        #Assumes already updated to α = 1
+        d1, V1 = sys.H_eigendecomp[:values], sys.H_eigendecomp[:vectors]
+        p1 = sortperm(d1)
+        V1 = V1[p1, p1]
+
+        
+        update!(sys, 0.0)
+        
+        d0, V0 = sys.H_eigendecomp[:values], sys.H_eigendecomp[:vectors]
         p0 = sortperm(d0) #make sure eigenvalues are sorted
         V0 = V0[p0, p0]
         
-        d1, V1 = 1 |> sys.H_fn |> full |> eig 
-        p1 = sortperm(d1)
-        V1 = V1[p1, p1]
         
         U = V0 * V1'
     else

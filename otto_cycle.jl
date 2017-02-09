@@ -29,7 +29,9 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     end
     
     #SETUP (ETH THERMALIZATION)
+    update!(sys, 0.0)
     ρinitial = gibbs(sys.H_fn(0.0), βH)
+    
     if verbose
         update!(sys, 0.0)
         @show T
@@ -136,15 +138,17 @@ function map_otto_efficiency(L    :: Int64,
     print_per = 100,
     )
     @show δs
+
     # sys.X[1] + sys.Z[1]
     if conserving #half-filling
         sys = ConservingRFHeis(L, 0.5)
-        Q(h) = sqrt(3*L - 2 +L.*h.^2/3)
+        Q = h -> sqrt(3*L - 2 +L.*h.^2/3)
     else
         sys = RFHeis(L)
-        Q(h) = sqrt(3(L - 1) + L*h.^2/3)
+        Q = h -> sqrt(3(L - 1) + L*h.^2/3)
     end
-    
+
+    @show typeof(Q)
     coupling_op = coupling_op_fn(sys)
     
     @show wbs
@@ -181,7 +185,6 @@ function map_otto_efficiency(L    :: Int64,
        for h0 in h0s
             srand(r*10)
             rfheis!(sys, h0, h1, Q)
-            update!(sys, 1.0)
             d = sys.H_eigendecomp[:values]
             for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, v in vs
                 if 0.0 == v
