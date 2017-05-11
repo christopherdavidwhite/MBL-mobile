@@ -180,10 +180,12 @@ function map_otto_efficiency(L    :: Int64,
     )
 
     c = 0
+    s = 0
     @show N_reals
     @time for r in 1:N_reals
-       for h0 in h0s
-            srand(r*10)
+        for h0 in h0s
+            srand(s*10)
+            s += 1
             rfheis!(sys, h0, h1, Q)
             d = sys.H_eigendecomp[:values]
             for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, v in vs
