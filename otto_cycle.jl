@@ -142,7 +142,7 @@ function map_otto_efficiency(L    :: Int64,
     # sys.X[1] + sys.Z[1]
     if conserving #half-filling
         sys = ConservingRFHeis(L, 0.5)
-        Q = h -> sqrt(3*L - 2 +L.*h.^2/3)
+        Q = h -> sqrt(3*L - 2 + (L - 2)/(L - 1) +L.*h.^2/3)
     else
         sys = RFHeis(L)
         Q = h -> sqrt(3(L - 1) + L*h.^2/3)
