@@ -182,6 +182,7 @@ function map_otto_efficiency(L    :: Int64,
     c = 0
     s = 0
     @show N_reals
+    tic()
     @time for r in 1:N_reals
         for h0 in h0s
             srand(s*10)
@@ -196,9 +197,8 @@ function map_otto_efficiency(L    :: Int64,
                     N_steps = ceil(abs((h0 - h1)/(v*δ)))
                     δ = T/N_steps
                 end
-                tic()
                 dct = otto_efficiency(sys, coupling_op, δ, wb, T, Δtth, βH, βC, false)
-                comptime = toq()
+                comptime = 0
                 c += 1
                 for k in keys(dct)
                     data[k][c] =  real(dct[k])
@@ -218,7 +218,8 @@ function map_otto_efficiency(L    :: Int64,
             end
         end
         if 0 == r % print_per
-            @show (L, r, data[:comptime][end])
+            @show (L, r, toq())
+            tic()
         end
     end
 
