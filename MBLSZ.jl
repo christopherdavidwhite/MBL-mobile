@@ -5,7 +5,7 @@ using LightGraphs
 using Combinatorics
 
 export AbstractSpinHalfChain, SpinHalfChain, RFHeis, ConservingRFHeis
-export thermalization_mats
+export thermalization_mats, thermalize
 export rfheis!, otto_efficiency, map_otto_efficiency, construct_γs, update!
 export blank_data_hash
 

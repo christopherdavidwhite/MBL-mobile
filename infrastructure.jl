@@ -333,7 +333,7 @@ function rfheis!(sys :: RFHeis, h0 :: Float64, h1 :: Float64, Q :: Function = h 
         field += Z[j]*h[j]
     end
 
-    bond_evals, bond_evects = bond |> full|> eig 
+    sys.bond_evals, sys.bond_evects = bond |> full|> eig
     sys.bond  = full(bond)
     sys.field = diag(field)
     sys.field_mat = full(field)
