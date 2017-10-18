@@ -125,7 +125,7 @@ end
 
 # works just as well with Γ as with γ
 function thermalizer(sys, βC, Γ :: Array{Float64,2})
-    bathgraph = Γ |> sparse |> DiGraph
+    bathgraph = Γ + Γ' |> sparse |> Graph
     subspaces = connected_components(bathgraph)
     T = Γ |> size |> zeros
     Es = sys.H_eigendecomp[:values]
