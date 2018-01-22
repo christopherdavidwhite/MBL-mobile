@@ -134,7 +134,7 @@ function map_otto_efficiency(L    :: Int64,
                              βCs   :: Array{Float64, 1},
     N_reals :: Int64,
     conserving = false,
-    file = nothing
+    file = nothing,
     δs  :: Array{Float64, 1} = [1/32],
     print_per = 100,
     )
