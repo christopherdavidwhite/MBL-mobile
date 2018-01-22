@@ -55,7 +55,7 @@ function otto_efficiency(sys  :: AbstractSpinHalfChain,
     (Γ, z, ω) = thermalization_mats(γ, sys.H_eigendecomp)
 
     V = sys.H_eigendecomp[:vectors]
-    V :: Array{Complex{Float64},2}
+    #V :: Array{Complex{Float64},2}
     ρE = V' * ρ * V
     ρp = V * thermalize(sys, βC, Γ, z, ω, ρE, Δtth) * V'
     if verbose
@@ -128,7 +128,7 @@ function map_otto_efficiency(L    :: Int64,
                              h0s  :: Array{Float64,1},
                              coupling_op_fn :: Function,
                              wbs  :: Array{Float64,1},
-                             vs ,
+                             Ts ,
                              Δtths :: Array{Float64, 1},
                              βHs   :: Array{Float64, 1},
                              βCs   :: Array{Float64, 1},
@@ -154,7 +154,7 @@ function map_otto_efficiency(L    :: Int64,
     @show wbs
 
     coupling = coupling_op
-    newdatavect(T) = zeros(T, N_reals*length(h0s)*length(wbs)*length(δs)*length(βHs)*length(βCs)*length(Δtths)*length(vs))
+    newdatavect(T) = zeros(T, N_reals*length(h0s)*length(wbs)*length(δs)*length(βHs)*length(βCs)*length(Δtths)*length(Ts))
     data = Dict(
                 :WETHMBL => newdatavect(Float64),
                 :WMBLETH => newdatavect(Float64),
@@ -169,7 +169,7 @@ function map_otto_efficiency(L    :: Int64,
                 :βH      => newdatavect(Float64),
                 :βC      => newdatavect(Float64),
                 :Δtths   => newdatavect(Float64),
-                :v       => newdatavect(Float64),
+                :T       => newdatavect(Float64),
                 :wb      => newdatavect(Float64),
     :std  => newdatavect(Float64),
     :δ    => newdatavect(Float64),
@@ -189,15 +189,13 @@ function map_otto_efficiency(L    :: Int64,
             s += 1
             rfheis!(sys, h0, h1, Q)
             d = sys.H_eigendecomp[:values]
-            for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, v in vs
-                if 0.0 == v
-                    T = "adiabatic"
+            for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, T in Ts
+                if T == Inf
+                    Tp = "adiabatic"
                 else
-                    T = abs((h0 - h1)/v)
-                    N_steps = ceil(abs((h0 - h1)/(v*δ)))
-                    δ = T/N_steps
+                    Tp = T
                 end
-                dct = otto_efficiency(sys, coupling_op, δ, wb, T, Δtth, βH, βC, false)
+                dct = otto_efficiency(sys, coupling_op, δ, wb, Tp, Δtth, βH, βC, false)
                 comptime = 0
                 c += 1
                 for k in keys(dct)
@@ -208,7 +206,7 @@ function map_otto_efficiency(L    :: Int64,
                 data[:βH][c]    =  βH 
                 data[:Δtths][c] =  Δtth
                 data[:h1][c]    =  h1
-                data[:v][c]     =  v
+                data[:T][c]     =  T
                 data[:wb][c]    =  wb 
                 data[:r][c]     =  r 
                 data[:std][c]   =  std(d)
