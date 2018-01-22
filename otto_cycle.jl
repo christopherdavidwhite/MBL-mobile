@@ -134,6 +134,7 @@ function map_otto_efficiency(L    :: Int64,
                              βCs   :: Array{Float64, 1},
     N_reals :: Int64,
     conserving = false,
+    file = nothing
     δs  :: Array{Float64, 1} = [1/32],
     print_per = 100,
     )
@@ -219,6 +220,9 @@ function map_otto_efficiency(L    :: Int64,
         end
         if 0 == r % print_per
             @show (L, r, toq())
+            if file != nothing
+                write(file, "data", data)
+            end
             tic()
         end
     end
