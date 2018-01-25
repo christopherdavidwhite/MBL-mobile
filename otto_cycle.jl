@@ -133,10 +133,11 @@ function map_otto_efficiency(L    :: Int64,
                              βHs   :: Array{Float64, 1},
                              βCs   :: Array{Float64, 1},
     N_reals :: Int64,
+    jldfile, 
     conserving = false,
-    file = nothing,
     δs  :: Array{Float64, 1} = [1/32],
     print_per = 100,
+    s = 0,
     )
     @show δs
 
@@ -156,32 +157,14 @@ function map_otto_efficiency(L    :: Int64,
 
     coupling = coupling_op
     newdatavect(T) = zeros(T, N_reals*length(h0s)*length(wbs)*length(δs)*length(βHs)*length(βCs)*length(Δtths)*length(Ts))
-    data = Dict(
-                :WETHMBL => newdatavect(Float64),
-                :WMBLETH => newdatavect(Float64),
-                :WTOT    => newdatavect(Float64),
-                :QMBL    => newdatavect(Float64),
-                :QETH    => newdatavect(Float64),
-                :η       => newdatavect(Float64),
-                :r       => newdatavect(Int64),
-                :neg_work => newdatavect(Float64),
-                :h0      => newdatavect(Float64),
-                :h1      => newdatavect(Float64),
-                :βH      => newdatavect(Float64),
-                :βC      => newdatavect(Float64),
-                :Δtths   => newdatavect(Float64),
-                :T       => newdatavect(Float64),
-                :wb      => newdatavect(Float64),
-    :std  => newdatavect(Float64),
-    :δ    => newdatavect(Float64),
-    :comptime => newdatavect(Float64),
-    :L => newdatavect(Float64),
-    :field1 => newdatavect(Float64),
-    :field2 => newdatavect(Float64),
-    )
-
+    for q in ["WETHMBL", "WMBLETH", "WTOT", "QMBL", "QETH", "η", "neg_work", "h0", "h1", "βH", "βC", "Δtths", "T", "wb", "std", "δ", "comptime" , "L" , "field1" , "field2"]
+        jldfile[q] = newdatavect(Float64)
+    end
+    for q in ["r"]
+        jldfile[q] = newdatavect(Int64)
+    end
+    
     c = 0
-    s = 0
     @show N_reals
     tic()
     @time for r in 1:N_reals
@@ -200,32 +183,27 @@ function map_otto_efficiency(L    :: Int64,
                 comptime = 0
                 c += 1
                 for k in keys(dct)
-                    data[k][c] =  real(dct[k])
+                    jldfile[string(k)][c] =  real(dct[k])
                 end
-                data[:h0][c]    =  h0 
-                data[:βC][c]    =  βC 
-                data[:βH][c]    =  βH 
-                data[:Δtths][c] =  Δtth
-                data[:h1][c]    =  h1
-                data[:T][c]     =  T
-                data[:wb][c]    =  wb 
-                data[:r][c]     =  r 
-                data[:std][c]   =  std(d)
-                data[:δ][c]     =  δ 
-                data[:L][c]     =  L 
-                data[:comptime][c] =  comptime
+                jldfile["h0"][c]    =  h0 
+                jldfile["βC"][c]    =  βC 
+                jldfile["βH"][c]    =  βH 
+                jldfile["Δtths"][c] =  Δtth
+                jldfile["h1"][c]    =  h1
+                jldfile["T"][c]     =  T
+                jldfile["wb"][c]    =  wb 
+                jldfile["r"][c]     =  r 
+                jldfile["std"][c]   =  std(d)
+                jldfile["δ"][c]     =  δ 
+                jldfile["L"][c]     =  L 
+                jldfile["comptime"][c] =  comptime
             end
         end
         if 0 == r % print_per
             @show (L, r, toq())
-            if file != nothing
-                write(file, "data", data)
-            end
             tic()
         end
     end
-
-    return DataFrame(data);
 end
 
 
