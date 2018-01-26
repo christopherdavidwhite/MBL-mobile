@@ -169,8 +169,9 @@ function map_otto_efficiency(L    :: Int64,
     tic()
     @time for r in 1:N_reals
         for h0 in h0s
-            srand(s*10)
-            s += 1
+            # label the disorder by the next integer from the PRNG,
+            # immediately before we go get the fields
+            disorderlabel = rand(Int)
             rfheis!(sys, h0, h1, Q)
             d = sys.H_eigendecomp[:values]
             for wb in wbs, δ in δs, βH in βHs, βC in βCs, Δtth in Δtths, T in Ts
@@ -192,7 +193,7 @@ function map_otto_efficiency(L    :: Int64,
                 jldfile["h1"][c]    =  h1
                 jldfile["T"][c]     =  T
                 jldfile["wb"][c]    =  wb 
-                jldfile["r"][c]     =  r 
+                jldfile["r"][c]     =  disorderlabel 
                 jldfile["std"][c]   =  std(d)
                 jldfile["δ"][c]     =  δ 
                 jldfile["L"][c]     =  L 
