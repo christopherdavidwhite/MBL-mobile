@@ -137,7 +137,7 @@ function map_otto_efficiency(L    :: Int64,
     conserving = false,
     δs  :: Array{Float64, 1} = [1/32],
     print_per = 100,
-    s = 0,
+    s = 0, 
     )
     @show δs
 
@@ -155,6 +155,10 @@ function map_otto_efficiency(L    :: Int64,
     
     @show wbs
 
+    if s != 0
+        srand(s)
+    end
+    
     coupling = coupling_op
     newdatavect(T) = zeros(T, N_reals*length(h0s)*length(wbs)*length(δs)*length(βHs)*length(βCs)*length(Δtths)*length(Ts))
     for q in ["WETHMBL", "WMBLETH", "WTOT", "QMBL", "QETH", "η", "neg_work", "h0", "h1", "βH", "βC", "Δtths", "T", "wb", "std", "δ", "comptime" , "L" , "field1" , "field2"]
