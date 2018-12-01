@@ -159,86 +159,89 @@ function pauli_matrices(L :: Int64)
 end
 
 #Z, PM in sector with filling fraction f
+
+
+# We can imagine visiting the L choose n combinations of locations
+# (that is, the L choose n different configurations with exactly n
+# particles) in lexicographical order; this order defines a
+# mapping
+#
+#     state |---> order visited ~= basis vector.
+#
+# We need a way to compute this map: I've taken a configuration
+# and hopped a particle: what basis vector does the new state
+# correspond to?
+#
+# This function 'rank' does that. It is due to Lehmer; cf Knuth v4
+# fasc. 3 pp 5-6.
+#
+#For example:
+#
+# L = 6
+# n = 3
+# for c in combinations(1:L, 2)
+#     l = zeros(Int64, L)
+#     l[c] = 1
+#     l = reverse(l)
+#     @show l, rank(l)
+# end
+
+function rank(st :: Array{Int64})
+    ct = reverse(find(st) - 1)
+    t  = length(ct):-1:1
+    return sum(map(binomial, ct, t)) + 1
+end
+
+#These may be slow. (It shouldn't matter, because I'll be re-using
+#the Paulis for every disorder realization and parameter.)
+#
+#  1. Chief problem: I probably don't insert elements in an order
+#  that's nice for a SparseMatrixCSC. This can probably be fixed
+#  by changing the order in which I walk through the basis states:
+#  want increasing rank (row or column? Don't know.) Might also
+#  want to separate out function
+#
+#  2. Might also want to pull inner loop into own function. This
+#  is lower priority.
+
+function spZ(j :: Int64, n :: Int64, L :: Int64)
+    assert(1 <= j <= L)
+    assert(1 <= n < L)
+    N = binomial(L,n)
+    Z = spzeros(N,N)
+    for c in combinations(1:L, n)
+        l = zeros(Int64, L)
+        l[c] = 1
+        b = rank(l)
+        Z[b,b] = 2*l[j] - 1
+    end
+    return Z
+end
+
+function spPM(jP :: Int64, jM :: Int64, n :: Int64, L :: Int64)
+    assert(1 <= jP <= L)
+    assert(1 <= jM <= L)
+    assert(1 <= n < L)
+    N = binomial(L,n)
+    PM = spzeros(N,N)
+    for c in combinations(1:L, n)
+        l = zeros(Int64, L)
+        l[c] = 1
+        b = rank(l)
+        if ((1 == l[jM]) & (0 == l[jP]))
+            lp = copy(l)
+            lp[jM] = 0
+            lp[jP] = 1
+            bp = rank(lp)
+            PM[bp,b] = 1
+        end
+    end
+    return PM
+end
+
+
 function conserving_pauli_matrices(L :: Int64, f :: Float64)
     n = round(Int, L*f) #number of particles
-    
-    # We can imagine visiting the L choose n combinations of locations
-    # (that is, the L choose n different configurations with exactly n
-    # particles) in lexicographical order; this order defines a
-    # mapping
-    #
-    #     state |---> order visited ~= basis vector.
-    #
-    # We need a way to compute this map: I've taken a configuration
-    # and hopped a particle: what basis vector does the new state
-    # correspond to?
-    #
-    # This function 'rank' does that. It is due to Lehmer; cf Knuth v4
-    # fasc. 3 pp 5-6.
-    #
-    #For example:
-    #
-    # L = 6
-    # n = 3
-    # for c in combinations(1:L, 2)
-    #     l = zeros(Int64, L)
-    #     l[c] = 1
-    #     l = reverse(l)
-    #     @show l, rank(l)
-    # end
-    
-    function rank(st :: Array{Int64})
-        ct = reverse(find(st) - 1)
-        t  = length(ct):-1:1
-        return sum(map(binomial, ct, t)) + 1
-    end
-
-    #These may be slow. (It shouldn't matter, because I'll be re-using
-    #the Paulis for every disorder realization and parameter.)
-    #
-    #  1. Chief problem: I probably don't insert elements in an order
-    #  that's nice for a SparseMatrixCSC. This can probably be fixed
-    #  by changing the order in which I walk through the basis states:
-    #  want increasing rank (row or column? Don't know.) Might also
-    #  want to separate out function
-    #
-    #  2. Might also want to pull inner loop into own function. This
-    #  is lower priority.
-    
-    function spZ(j :: Int64, n :: Int64, L :: Int64)
-        assert(1 <= j <= L)
-        assert(1 <= n < L)
-        N = binomial(L,n)
-        Z = spzeros(N,N)
-        for c in combinations(1:L, n)
-            l = zeros(Int64, L)
-            l[c] = 1
-            b = rank(l)
-            Z[b,b] = 2*l[j] - 1
-        end
-        return Z
-    end
-
-    function spPM(jP :: Int64, jM :: Int64, n :: Int64, L :: Int64)
-        assert(1 <= jP <= L)
-        assert(1 <= jM <= L)
-        assert(1 <= n < L)
-        N = binomial(L,n)
-        PM = spzeros(N,N)
-        for c in combinations(1:L, n)
-            l = zeros(Int64, L)
-            l[c] = 1
-            b = rank(l)
-            if ((1 == l[jM]) & (0 == l[jP]))
-                lp = copy(l)
-                lp[jM] = 0
-                lp[jP] = 1
-                bp = rank(lp)
-                PM[bp,b] = 1
-            end
-        end
-        return PM
-    end
 
     Z = [spZ(j, n, L) for j in 1:L]
     PM = [spPM(jP, jM, n, L) for (jP, jM) in zip(1:L, circshift(1:L, -1))]
